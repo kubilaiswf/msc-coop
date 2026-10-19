@@ -92,6 +92,12 @@ sealed class ObjectSync
             registry.Clear();
     }
 
+    public void OnSceneCloned()
+    {
+        if (Application.loadedLevelName == "GAME" && session != null && !built)
+            registry.CaptureAwake();
+    }
+
     public void OnGameReady()
     {
         if (session == null)

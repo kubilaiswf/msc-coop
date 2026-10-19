@@ -273,6 +273,10 @@ sealed class NetRunner : MonoBehaviour
 
     void LateUpdate() => players.LateUpdate(Time.deltaTime);
 
+    // Sent by mods that add objects to the scene from their own OnLevelWasLoaded, whose order
+    // against this one is not defined, so every machine identifies the same objects.
+    void OnSceneCloned() => objects.OnSceneCloned();
+
     void OnLevelWasLoaded(int level)
     {
         if (session != null)
