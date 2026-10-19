@@ -69,10 +69,25 @@ sealed class PassengerSeat(ObjectRegistry registry)
                 else if (fsm.gameObject.name == "PlayerTrigger")
                     trigger = fsm;
             }
-            var head = drive == null ? null : drive.FsmVariables.FindFsmGameObject("DriverHeadPivot");
-            if (trigger != null && head != null && head.Value != null)
-                cabins.Add(new Cabin { Vehicle = obj, Trigger = trigger, Drive = drive, DriverHead = head.Value.transform });
+            var head = drive == null ? null : DriverHead(obj.Go.transform, drive);
+            if (trigger != null && head != null)
+                cabins.Add(new Cabin { Vehicle = obj, Trigger = trigger, Drive = drive, DriverHead = head });
         }
+    }
+
+    // Most drive triggers name the driver's head pivot in a variable; the Satsuma fills it in later and
+    // the Gifu has none, but every one of them has an object of that name.
+    static Transform DriverHead(Transform vehicle, PlayMakerFSM drive)
+    {
+        var head = drive.FsmVariables.FindFsmGameObject("DriverHeadPivot");
+        if (head != null && head.Value != null)
+            return head.Value.transform;
+        foreach (var t in vehicle.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == "DriverHeadPivot")
+                return t;
+        }
+        return null;
     }
 
     public void Update()
