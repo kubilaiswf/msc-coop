@@ -53,6 +53,7 @@ sealed class Avatar
     float pitch;
     float crouch;
     bool crouching;
+    AvatarGestures clips;
     Gesture gesture;
     Gesture shown;
     float gestureWeight;
@@ -140,13 +141,16 @@ sealed class Avatar
         for (var i = 0; i < bones.Length; i++)
             standing[i] = new Pose { Valid = true, Position = bones[i].localPosition, Rotation = bones[i].localRotation };
 
-        return new Avatar(copy, copy.GetComponentInChildren<Animation>(), CreateNameTag(copy.transform, name),
+        var avatar = new Avatar(copy, copy.GetComponentInChildren<Animation>(), CreateNameTag(copy.transform, name),
             bones, standing, CaptureSeatedPose(skeleton, bones), modelOffset, modelRotation);
+        avatar.clips = AvatarGestures.Create(skeleton);
+        return avatar;
     }
 
     public void Apply(Vector3 position, Quaternion rotation, Vector3 velocity, PlayerFlags flags, Gesture gesture, Transform camera)
     {
         this.gesture = gesture;
+        clips.Set(gesture);
         var inVehicle = (flags & PlayerFlags.InVehicle) != 0;
         crouching = !inVehicle && (flags & PlayerFlags.Crouching) != 0;
         facing = rotation;
@@ -200,7 +204,7 @@ sealed class Avatar
         if (gesture != Gesture.None)
             shown = gesture;
         gestureWeight = Mathf.MoveTowards(gestureWeight, gesture != Gesture.None ? 1f : 0f, deltaTime * GestureSpeed);
-        if (gestureWeight > 0)
+        if (gestureWeight > 0 && !clips.Has(shown))
             PoseArms(right);
         if (headPivot >= 0)
             bones[headPivot].rotation = facing * Quaternion.Euler(pitch, 0, 0);
@@ -208,7 +212,7 @@ sealed class Avatar
             bones[head].rotation = Quaternion.AngleAxis(pitch * (1 - ChestShareOfPitch), right) * bones[head].rotation;
     }
 
-    // NPCs have no gesture clips either, so each gesture is an arm reaching in a direction.
+    // Used where the scene had no clip for a gesture: the arm reaches in a direction instead.
     void PoseArms(Vector3 right)
     {
         var look = facing * Quaternion.Euler(pitch, 0, 0) * Vector3.forward;
