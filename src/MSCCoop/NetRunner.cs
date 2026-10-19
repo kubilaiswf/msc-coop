@@ -39,6 +39,9 @@ sealed class NetRunner : MonoBehaviour
     SharedValueSync shared;
     double simLatency, simJitter, simLoss;
     string statusText = "";
+    readonly Stopwatch profile = new();
+    int profiledFrames;
+    double profiledMs;
     float nextStatus;
     bool overlay = true;
 
@@ -241,6 +244,7 @@ sealed class NetRunner : MonoBehaviour
 
     void Update()
     {
+        profile.Start();
         steam?.Update(Now);
         session?.Update(Now);
         flow.Update();
@@ -251,9 +255,14 @@ sealed class NetRunner : MonoBehaviour
         fsms.Update();
         money.Update();
         shared.Update();
+        profile.Stop();
+        profiledFrames++;
         if (overlay && Time.unscaledTime >= nextStatus)
         {
             nextStatus = Time.unscaledTime + StatusInterval;
+            profiledMs = profile.Elapsed.TotalMilliseconds / Math.Max(1, profiledFrames);
+            profile.Reset();
+            profiledFrames = 0;
             statusText = BuildStatus();
         }
     }
@@ -273,9 +282,19 @@ sealed class NetRunner : MonoBehaviour
             session.HoldGameMessages = false;
     }
 
-    void FixedUpdate() => objects.FixedUpdate();
+    void FixedUpdate()
+    {
+        profile.Start();
+        objects.FixedUpdate();
+        profile.Stop();
+    }
 
-    void LateUpdate() => players.LateUpdate(Time.deltaTime);
+    void LateUpdate()
+    {
+        profile.Start();
+        players.LateUpdate(Time.deltaTime);
+        profile.Stop();
+    }
 
     // Sent by mods that add objects to the scene from their own OnLevelWasLoaded, whose order
     // against this one is not defined, so every machine identifies the same objects.
@@ -322,7 +341,9 @@ sealed class NetRunner : MonoBehaviour
             status.AppendLine();
         }
         if (fsms != null)
-            status.Append("fsm sent ").Append(fsms.Sent).Append(" applied ").Append(fsms.Applied).Append(" unknown ").Append(fsms.Unknown).AppendLine();
+            status.Append("fsm sent ").Append(fsms.Sent).Append(" applied ").Append(fsms.Applied).Append(" unknown ").Append(fsms.Unknown).Append(" deferred ").Append(fsms.Deferred).AppendLine();
+        // Everything this mod does per frame, physics steps included, so its share of a frame is visible.
+        status.Append("mod ").Append(profiledMs.ToString("0.00")).Append(" ms/frame").AppendLine();
         if (sim != null && sim.Enabled)
             status.Append("sim ").Append((int)(simLatency * 1000)).Append(" ms +").Append((int)(simJitter * 1000)).Append(" ms ").Append((int)(simLoss * 100)).Append("% loss");
         return status.ToString();

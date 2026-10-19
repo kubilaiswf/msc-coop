@@ -46,8 +46,12 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
     readonly HashSet<PlayMakerFSM> turning = new();
     readonly Dictionary<PlayMakerFSM, string[]> toggles = new();
     readonly Dictionary<PlayMakerFSM, int> toggleState = new();
-    readonly List<KeyValuePair<PlayMakerFSM, string>> deferred = new();
+    readonly Dictionary<PlayMakerFSM, Queue<string>> deferred = new();
+    readonly List<PlayMakerFSM> deferredFsms = new();
+    int deferredCount;
+    int frame;
     const int MaxDeferred = 2000;
+    const int DeferredCheckInterval = 10;
     Session session;
     bool applying;
     int unsupported;
@@ -72,36 +76,30 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
         toggles.Clear();
         toggleState.Clear();
         deferred.Clear();
+        deferredFsms.Clear();
+        deferredCount = 0;
     }
+
+    public int Deferred => deferredCount;
 
     // Events for FSMs that were inactive when they arrived, e.g. doors of a building switched off by
     // distance, are entered once the FSM is running again, in the order they arrived.
     public void Update()
     {
-        if (deferred.Count == 0)
+        if (deferredFsms.Count == 0 || ++frame % DeferredCheckInterval != 0)
             return;
-        var kept = 0;
-        for (var i = 0; i < deferred.Count; i++)
+        for (var i = deferredFsms.Count - 1; i >= 0; i--)
         {
-            var e = deferred[i];
-            if (e.Key == null)
+            var fsm = deferredFsms[i];
+            if (fsm != null && !IsRunning(fsm))
                 continue;
-            if (IsRunning(e.Key) && !HasEarlierDeferred(e.Key, kept))
-                Enter(e.Key, e.Value);
-            else
-                deferred[kept++] = e;
+            var queue = deferred[fsm];
+            deferredCount -= queue.Count;
+            while (fsm != null && queue.Count > 0)
+                Enter(fsm, queue.Dequeue());
+            deferred.Remove(fsm);
+            deferredFsms.RemoveAt(i);
         }
-        deferred.RemoveRange(kept, deferred.Count - kept);
-    }
-
-    bool HasEarlierDeferred(PlayMakerFSM fsm, int before)
-    {
-        for (var i = 0; i < before; i++)
-        {
-            if (deferred[i].Key == fsm)
-                return true;
-        }
-        return false;
     }
 
     static bool IsRunning(PlayMakerFSM fsm) => fsm.enabled && fsm.gameObject.activeInHierarchy && fsm.Fsm.Started;
@@ -521,15 +519,23 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
     void Apply(PlayMakerFSM fsm, string eventName)
     {
         Applied++;
-        if (IsRunning(fsm) && !HasEarlierDeferred(fsm, deferred.Count))
+        if (!deferred.TryGetValue(fsm, out var queue) && IsRunning(fsm))
         {
             Enter(fsm, eventName);
             return;
         }
         if (Diagnostics.Logging)
             Diagnostics.Log("fsm defer " + registry.FsmKey(fsm) + " " + eventName);
-        if (deferred.Count < MaxDeferred)
-            deferred.Add(new KeyValuePair<PlayMakerFSM, string>(fsm, eventName));
+        if (deferredCount >= MaxDeferred)
+            return;
+        if (queue == null)
+        {
+            queue = new Queue<string>();
+            deferred[fsm] = queue;
+            deferredFsms.Add(fsm);
+        }
+        queue.Enqueue(eventName);
+        deferredCount++;
     }
 
     void Enter(PlayMakerFSM fsm, string eventName)
