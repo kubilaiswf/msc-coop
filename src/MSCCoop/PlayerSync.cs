@@ -115,6 +115,9 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
     void Send(double hostTime)
     {
         nextSend = hostTime + SendInterval;
+        // Dying replaces the player's controller with a ragdoll until the game reloads.
+        if (controller == null)
+            return;
         var position = player.position + controller.center - Vector3.up * (controller.height * 0.5f);
         var yaw = player.eulerAngles.y;
         var vehicle = player.parent == null ? null : registry.Find(player.root.gameObject);
