@@ -35,6 +35,7 @@ sealed class NetRunner : MonoBehaviour
     FsmSync fsms;
     readonly WorldSync world = new();
     readonly MoneySync money = new();
+    readonly PhoneSync phone = new();
     SharedValueSync shared;
     double simLatency, simJitter, simLoss;
     string statusText = "";
@@ -166,6 +167,7 @@ sealed class NetRunner : MonoBehaviour
         fsms.Attach(session);
         world.Attach(session);
         money.Attach(session);
+        phone.Attach(session);
         shared.Attach(session);
         session.PlayerJoined += p => ModConsole.Print("Co-op: " + p.Name + " joined");
         session.PlayerLeft += p => ModConsole.Print("Co-op: " + p.Name + " left");
@@ -193,6 +195,7 @@ sealed class NetRunner : MonoBehaviour
         fsms.Detach();
         world.Detach();
         money.Detach();
+        phone.Detach();
         shared.Detach();
         var text = reason == EndReason.Rejected ? "rejected (" + session.LastRejectReason + ")" : reason.ToString();
         ModConsole.Print("Co-op: session ended, " + text);
@@ -261,6 +264,7 @@ sealed class NetRunner : MonoBehaviour
         fsms.OnGameReady();
         world.OnGameReady();
         money.OnGameReady();
+        phone.OnGameReady();
         shared.OnGameReady();
         flow.OnGameReady();
         players.OnGameReady();
@@ -287,6 +291,7 @@ sealed class NetRunner : MonoBehaviour
         objects.OnLevelLoaded();
         world.OnLevelLoaded();
         money.OnLevelLoaded();
+        phone.OnLevelLoaded();
         shared.OnLevelLoaded();
     }
 
