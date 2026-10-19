@@ -129,6 +129,12 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
                 case "Horn":
                     HookToggle(fsm, HornStates);
                     break;
+                case "Use" when IsShopBox(fsm):
+                    HookSteps(fsm, IsBoxOpenStep);
+                    break;
+                case "Use" when fsm.FsmVariables.FindFsmString("ID") != null && (fsm.GetState("Destroy") != null || fsm.GetState("Is garbage") != null):
+                    HookSteps(fsm, IsConsumedStep);
+                    break;
                 case "Use":
                     HookToggle(fsm);
                     break;
@@ -264,6 +270,14 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
 
     // A wire end connects in "Sound", which also tells the other end of the wire to close the loop.
     static bool IsWireStep(string state) => state == "Sound";
+
+    // Opening a delivered box takes the part out, activates it and destroys the box.
+    static bool IsShopBox(PlayMakerFSM fsm) => fsm.transform.parent != null && fsm.transform.parent.name == "Boxes";
+
+    static bool IsBoxOpenStep(string state) => state == "State 1" || state == "State 2";
+
+    // Eaten food and emptied bottles are not destroyed: these states strip the item and move it away.
+    static bool IsConsumedStep(string state) => state == "Destroy" || state == "Is garbage";
 
     // One scroll step of a window crank moves the glass a fixed amount.
     static bool IsWindowStep(string state) => state == "State 1" || state == "State 2";

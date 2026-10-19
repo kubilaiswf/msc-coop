@@ -522,7 +522,25 @@ sealed class ObjectSync
         if (obj == null || obj.Go == null)
             return;
         obj.DestroyedByNetwork = true;
+        ReleaseChildren(obj.Go.transform);
         Object.Destroy(obj.Go);
+    }
+
+    // A delivered box holds its part as a child until it is opened. Where the box was destroyed by
+    // the network, the part must not go with it: it comes out of the box the way opening releases it.
+    void ReleaseChildren(Transform parent)
+    {
+        for (var i = parent.childCount - 1; i >= 0; i--)
+        {
+            var child = parent.GetChild(i);
+            if (registry.Find(child.gameObject) == null)
+            {
+                ReleaseChildren(child);
+                continue;
+            }
+            child.SetParent(null, true);
+            child.gameObject.SetActive(true);
+        }
     }
 
     void TrackRest(NetObject obj, Rigidbody body)
