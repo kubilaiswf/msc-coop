@@ -58,7 +58,7 @@ The van (`hayosiko`) drives out of the box, so vehicle scenarios do not need a b
 7. **[lag]** Both players grab the same item at the same moment. Exactly one ends up holding it.
 8. **[lag]** One player throws an item, the other catches it mid-air.
 9. Drop ten items in a pile, wait until they stop. `coop dump` shows the same poses on both.
-10. Client eats a sausage and drinks a beer. Both disappear on the host too. **Known gap:** eaten food is moved away instead of destroyed, so it is not synced yet.
+10. Client eats a sausage and drinks a beer. Both disappear on the host too.
 
 ### Engine building
 
@@ -88,6 +88,6 @@ The van (`hayosiko`) drives out of the box, so vehicle scenarios do not need a b
 
 ### Store and saving
 
-28. Client buys something at the store. **Known gap:** purchases are not synced yet; note what the host sees.
+28. Client buys a few things at the store, some big (a beer case, a battery) and some that go in the bag. The host sees the same items and the same bag. The host opens the bag: the items that come out appear on the client too, and the bag empties on both. **Known gap:** the shelves are not synced, the client's shelf stays full on the host.
 29. Host saves and quits, then hosts again with the client. Parts the client attached and bolted are still there. Saving ends the session for everyone; the client must not use the save toilet.
 30. After a session the client's own save files (`AppData\LocalLow\Amistech\My Summer Car`) have the same modification time as before.

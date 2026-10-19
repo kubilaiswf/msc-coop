@@ -36,6 +36,7 @@ sealed class NetRunner : MonoBehaviour
     readonly WorldSync world = new();
     readonly MoneySync money = new();
     readonly PhoneSync phone = new();
+    SpawnSync spawns;
     SharedValueSync shared;
     double simLatency, simJitter, simLoss;
     string statusText = "";
@@ -58,6 +59,7 @@ sealed class NetRunner : MonoBehaviour
         players = new PlayerSync(objects.Registry, passenger);
         players.Init();
         fsms = new FsmSync(objects.Registry, objects);
+        spawns = new SpawnSync(objects.Registry, fsms);
         shared = new SharedValueSync(objects.Registry);
         flow = new GameFlow(clientSaveDir);
         flow.OnLevelLoaded();
@@ -171,6 +173,7 @@ sealed class NetRunner : MonoBehaviour
         world.Attach(session);
         money.Attach(session);
         phone.Attach(session);
+        spawns.Attach(session);
         shared.Attach(session);
         session.PlayerJoined += p => ModConsole.Print("Co-op: " + p.Name + " joined");
         session.PlayerLeft += p => ModConsole.Print("Co-op: " + p.Name + " left");
@@ -199,6 +202,7 @@ sealed class NetRunner : MonoBehaviour
         world.Detach();
         money.Detach();
         phone.Detach();
+        spawns.Detach();
         shared.Detach();
         var text = reason == EndReason.Rejected ? "rejected (" + session.LastRejectReason + ")" : reason.ToString();
         ModConsole.Print("Co-op: session ended, " + text);
@@ -255,6 +259,7 @@ sealed class NetRunner : MonoBehaviour
         fsms.Update();
         money.Update();
         shared.Update();
+        spawns.Update();
         profile.Stop();
         profiledFrames++;
         if (overlay && Time.unscaledTime >= nextStatus)
@@ -274,6 +279,7 @@ sealed class NetRunner : MonoBehaviour
         world.OnGameReady();
         money.OnGameReady();
         phone.OnGameReady();
+        spawns.OnGameReady();
         shared.OnGameReady();
         flow.OnGameReady();
         players.OnGameReady();
@@ -311,6 +317,7 @@ sealed class NetRunner : MonoBehaviour
         world.OnLevelLoaded();
         money.OnLevelLoaded();
         phone.OnLevelLoaded();
+        spawns.OnLevelLoaded();
         shared.OnLevelLoaded();
     }
 

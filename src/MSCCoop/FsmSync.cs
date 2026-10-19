@@ -111,47 +111,50 @@ sealed class FsmSync(ObjectRegistry registry, ObjectSync objects)
         toggleState.Clear();
         unsupported = 0;
         foreach (var fsm in registry.Fsms)
-        {
-            switch (fsm.FsmName)
-            {
-                case "Assembly":
-                    HookAssembly(fsm);
-                    break;
-                case "Removal":
-                    HookRemoval(fsm);
-                    break;
-                case "Screw":
-                    HookScrew(fsm);
-                    break;
-                case "Use" when fsm.gameObject.name == "ButtonHorn":
-                case "Horn":
-                    HookToggle(fsm, HornStates);
-                    break;
-                case "Use" when IsShopBox(fsm):
-                    HookSteps(fsm, IsBoxOpenStep);
-                    break;
-                case "Use" when fsm.FsmVariables.FindFsmString("ID") != null && (fsm.GetState("Destroy") != null || fsm.GetState("Is garbage") != null):
-                    HookSteps(fsm, IsConsumedStep);
-                    break;
-                case "Use":
-                    HookToggle(fsm);
-                    break;
-                case "Knob" when fsm.FsmVariables.FindFsmGameObject("Windows") != null:
-                    HookSteps(fsm, IsWindowStep);
-                    break;
-                case "Usage" when fsm.GetState("Activate dash") != null:
-                    HookSteps(fsm, IsTurnSignalStep);
-                    break;
-                case "Assemble":
-                    HookSteps(fsm, IsWireStep);
-                    break;
-                case "BoltCheck" when fsm.GetState("Break off") != null:
-                    HookSteps(fsm, IsBreakOff);
-                    break;
-            }
-        }
+            Hook(fsm);
         if (unsupported > 0)
             ModConsole.Warning("Co-op: " + unsupported + " assembly FSMs have an unknown layout and will not sync.");
+    }
+
+    public void Hook(PlayMakerFSM fsm)
+    {
+        switch (fsm.FsmName)
+        {
+            case "Assembly":
+                HookAssembly(fsm);
+                break;
+            case "Removal":
+                HookRemoval(fsm);
+                break;
+            case "Screw":
+                HookScrew(fsm);
+                break;
+            case "Use" when fsm.gameObject.name == "ButtonHorn":
+            case "Horn":
+                HookToggle(fsm, HornStates);
+                break;
+            case "Use" when IsShopBox(fsm):
+                HookSteps(fsm, IsBoxOpenStep);
+                break;
+            case "Use" when fsm.FsmVariables.FindFsmString("ID") != null && (fsm.GetState("Destroy") != null || fsm.GetState("Is garbage") != null):
+                HookSteps(fsm, IsConsumedStep);
+                break;
+            case "Use":
+                HookToggle(fsm);
+                break;
+            case "Knob" when fsm.FsmVariables.FindFsmGameObject("Windows") != null:
+                HookSteps(fsm, IsWindowStep);
+                break;
+            case "Usage" when fsm.GetState("Activate dash") != null:
+                HookSteps(fsm, IsTurnSignalStep);
+                break;
+            case "Assemble":
+                HookSteps(fsm, IsWireStep);
+                break;
+            case "BoltCheck" when fsm.GetState("Break off") != null:
+                HookSteps(fsm, IsBreakOff);
+                break;
+        }
     }
 
     void HookAssembly(PlayMakerFSM fsm)

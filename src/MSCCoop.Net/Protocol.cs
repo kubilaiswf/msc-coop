@@ -3,7 +3,7 @@ namespace MSCCoop.Net;
 public static class Protocol
 {
     public const ushort Magic = 0x4D43;
-    public const byte Version = 5;
+    public const byte Version = 6;
     public const int HeaderBits = 24;
     public const int MaxPlayers = 4;
     public const int MaxNameChars = 32;
@@ -60,6 +60,8 @@ public enum MessageType : byte
     PhoneRing = 57,
     PhoneAnswer = 58,
     PhoneHangup = 59,
+    SpawnItem = 60,
+    BagContents = 61,
 }
 
 public enum RejectReason : byte

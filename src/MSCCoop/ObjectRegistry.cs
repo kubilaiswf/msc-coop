@@ -95,7 +95,9 @@ sealed class ObjectRegistry
     readonly Dictionary<uint, PlayMakerFSM> fsmsById = new();
     readonly Dictionary<PlayMakerFSM, uint> idsByFsm = new();
     readonly Dictionary<PlayMakerFSM, string> keysByFsm = new();
+    readonly Dictionary<GameObject, string> spawned = new();
     int boltsLayer;
+    bool built;
 
     public readonly List<NetObject> Objects = new();
     public readonly List<PlayMakerFSM> Fsms = new();
@@ -111,9 +113,75 @@ sealed class ObjectRegistry
         fsmsById.Clear();
         idsByFsm.Clear();
         keysByFsm.Clear();
+        spawned.Clear();
         Objects.Clear();
         Fsms.Clear();
         Hash = 0;
+        built = false;
+    }
+
+    public bool Has(string key) => byId.ContainsKey(Fnv.Hash32(key));
+
+    // Objects the game's spawners create are named by spawner and number, the same on every
+    // machine, so that name identifies them. Before Build they are remembered and keyed there;
+    // after it they are added on the spot, with their FSMs, which are returned to be hooked.
+    public List<PlayMakerFSM> AddSpawned(string key, GameObject go)
+    {
+        if (!built)
+        {
+            spawned[go] = key;
+            return null;
+        }
+        var id = Fnv.Hash32(key);
+        if (byId.ContainsKey(id))
+            return null;
+        if (go.GetComponent<Rigidbody>() != null)
+        {
+            var obj = new NetObject(id, go) { Key = key };
+            Objects.Add(obj);
+            byId[id] = obj;
+            byObject[go] = obj;
+        }
+        var added = new List<PlayMakerFSM>();
+        var found = new List<KeyValuePair<string, PlayMakerFSM>>();
+        CollectSubtree(go.transform, key, found);
+        foreach (var pair in found)
+        {
+            var fsmId = Fnv.Hash32(pair.Key);
+            if (fsmsById.ContainsKey(fsmId) || idsByFsm.ContainsKey(pair.Value))
+                continue;
+            fsmsById[fsmId] = pair.Value;
+            idsByFsm[pair.Value] = fsmId;
+            keysByFsm[pair.Value] = pair.Key;
+            Fsms.Add(pair.Value);
+            added.Add(pair.Value);
+        }
+        return added;
+    }
+
+    static void CollectSubtree(Transform t, string path, List<KeyValuePair<string, PlayMakerFSM>> into)
+    {
+        CollectFsms(t.gameObject, path, into);
+        var names = new Dictionary<string, int>();
+        for (var i = 0; i < t.childCount; i++)
+        {
+            var child = t.GetChild(i);
+            names.TryGetValue(child.name, out var n);
+            names[child.name] = n + 1;
+            CollectSubtree(child, path + "/" + (n == 0 ? child.name : child.name + "[" + n + "]"), into);
+        }
+    }
+
+    string SpawnedKey(Transform t)
+    {
+        var suffix = "";
+        for (var current = t; current != null; current = current.parent)
+        {
+            if (spawned.TryGetValue(current.gameObject, out var key))
+                return key + suffix;
+            suffix = "/" + current.name + suffix;
+        }
+        return null;
     }
 
     public NetObject Find(uint id) => byId.TryGetValue(id, out var o) ? o : null;
@@ -168,7 +236,8 @@ sealed class ObjectRegistry
                 continue;
             seen.Add(go);
             var itemId = UseId(go);
-            entries.Add(new KeyValuePair<string, GameObject>(itemId != null ? "i:" + itemId : "l:" + PathOf(go.transform), go));
+            var key = SpawnedKey(go.transform) ?? (itemId != null ? "i:" + itemId : "l:" + PathOf(go.transform));
+            entries.Add(new KeyValuePair<string, GameObject>(key, go));
         }
 
         entries.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
@@ -200,6 +269,8 @@ sealed class ObjectRegistry
         Hash = hash;
         awake.Clear();
         BuildFsms();
+        spawned.Clear();
+        built = true;
         if (dropped > 0)
             ModConsole.Warning("Co-op: " + dropped + " objects have ambiguous ids and will not be synced.");
     }
@@ -264,7 +335,7 @@ sealed class ObjectRegistry
                 continue;
             var itemId = UseId(go);
             var lateFsms = new List<KeyValuePair<string, PlayMakerFSM>>();
-            CollectFsms(go, itemId != null ? "i:" + itemId : "l:" + PathOf(go.transform), lateFsms);
+            CollectFsms(go, SpawnedKey(go.transform) ?? (itemId != null ? "i:" + itemId : "l:" + PathOf(go.transform)), lateFsms);
             foreach (var pair in lateFsms)
             {
                 if (seen.Add(pair.Value))
