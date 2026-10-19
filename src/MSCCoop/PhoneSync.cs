@@ -13,6 +13,11 @@ sealed class PhoneSync
 {
     const string LogicPath = "YARD/Building/LIVINGROOM/Telephone/Logic";
     const int MaxTopicChars = 32;
+
+    // These calls act on whoever holds the handset: lightning can strike them in a thunderstorm,
+    // and Suski's late call ends with them falling asleep. Everyone else only hears the ringing stop.
+    const string ThunderState = "Thunder calls";
+    static readonly string[] HandsetOnlyTopics = { "SUSKI2" };
     static readonly string[] SeededStates = { "State 3", "Order", "Stolen fuel", "Ferndale" };
 
     Session session;
@@ -170,6 +175,11 @@ sealed class PhoneSync
     {
         if (!callObject.activeSelf || answer.Value)
             return;
+        if (call.ActiveStateName == ThunderState || System.Array.IndexOf(HandsetOnlyTopics, topic.Value) >= 0)
+        {
+            ApplyHangUp();
+            return;
+        }
         answeredByNetwork = true;
         answer.Value = true;
     }
