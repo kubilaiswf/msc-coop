@@ -1,5 +1,6 @@
 using HutongGames.PlayMaker;
 using MSCCoop.Net;
+using MSCLoader;
 using UnityEngine;
 
 namespace MSCCoop;
@@ -9,8 +10,11 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
     const double SendInterval = 0.05;
     const float CrouchDrop = 0.35f;
 
-    // A punch or push is a single key press; it is held this long so a 20 Hz state packet carries it.
-    const float StrikeHold = 0.45f;
+    // The game's gestures run in PLAYER's PlayerFunctions FSM. Hitchhiking and pushing stay in a state
+    // until the key is pressed again; the middle finger and a punch pass through their state in one
+    // frame and leave an animation playing, so those are held for the length of that animation.
+    const string FunctionsPath = "PLAYER/Pivot/AnimPivot/Camera/FPSCamera";
+    const float FallbackMoment = 0.5f;
 
     readonly SnapshotBuffer[] buffers = new SnapshotBuffer[Protocol.MaxPlayers];
     readonly Avatar[] avatars = new Avatar[Protocol.MaxPlayers];
@@ -24,8 +28,9 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
     FsmGameObject pov;
     FsmString currentVehicle;
     FsmBool inMenu;
-    Gesture strike;
-    float strikeUntil;
+    PlayMakerFSM functions;
+    Gesture moment;
+    float momentUntil;
     float standingEyes;
     Vector3 lastPosition;
     uint lastFrame;
@@ -70,7 +75,8 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
         pov = globals.FindFsmGameObject("POV");
         currentVehicle = globals.FindFsmString("PlayerCurrentVehicle");
         inMenu = globals.FindFsmBool("PlayerInMenu");
-        strike = Gesture.None;
+        moment = Gesture.None;
+        HookGestures();
         lastSendTime = double.NaN;
     }
 
@@ -80,7 +86,6 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
             return;
 
         var hostTime = session.HostTime;
-        PollStrike();
         if (hostTime >= nextSend || nextSend - hostTime > 1)
             Send(hostTime);
 
@@ -200,28 +205,50 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
         return -Mathf.Asin(Mathf.Clamp(forward.y, -1f, 1f)) * Mathf.Rad2Deg;
     }
 
-    void PollStrike()
+    void HookGestures()
     {
-        if (inMenu != null && inMenu.Value)
+        var camera = GameObject.Find(FunctionsPath);
+        functions = camera == null ? null : camera.GetPlayMaker("PlayerFunctions");
+        if (functions == null)
             return;
-        var pressed = cInput.GetKeyDown("Hit") ? Gesture.Hit : cInput.GetKeyDown("Push") ? Gesture.Push : Gesture.None;
-        if (pressed == Gesture.None)
-            return;
-        strike = pressed;
-        strikeUntil = Time.time + StrikeHold;
+        var finger = ClipLength(camera.transform, "FPSCamera/MiddleFinger/Pivot", "middlefinger");
+        var fist = ClipLength(camera.transform, "FPSCamera/Fist/Pivot", "fist_throw");
+        functions.FsmInject("Finger", () => Moment(Gesture.Finger, finger), index: 0);
+        functions.FsmInject("Fist", () => Moment(Gesture.Hit, fist), index: 0);
+    }
+
+    static float ClipLength(Transform root, string path, string clip)
+    {
+        var target = root.Find(path);
+        var animation = target == null ? null : target.GetComponent<Animation>();
+        var state = animation == null ? null : animation[clip];
+        return state == null ? FallbackMoment : state.length;
+    }
+
+    void Moment(Gesture gesture, float length)
+    {
+        moment = gesture;
+        momentUntil = Time.time + length;
     }
 
     Gesture LocalGesture(bool seated)
     {
         if (inMenu != null && inMenu.Value)
             return Gesture.None;
-        if (cInput.GetKey("Finger"))
-            return Gesture.Finger;
-        if (seated)
+        if (Time.time < momentUntil && (!seated || moment == Gesture.Finger))
+            return moment;
+        if (seated || functions == null)
             return Gesture.None;
-        if (strike != Gesture.None && Time.time < strikeUntil)
-            return strike;
-        return cInput.GetKey("Hitchhike") ? Gesture.Hitchhike : Gesture.None;
+        switch (functions.ActiveStateName)
+        {
+            case "Finger 2":
+            case "Thumb Up":
+                return Gesture.Hitchhike;
+            case "On":
+                return Gesture.Push;
+            default:
+                return Gesture.None;
+        }
     }
 
     PlayerFlags LocalFlags()
