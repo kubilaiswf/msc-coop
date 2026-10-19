@@ -29,6 +29,8 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
     FsmString currentVehicle;
     FsmBool inMenu;
     PlayMakerFSM functions;
+    PlayMakerFSM urinate;
+    GameObject smoking;
     Gesture moment;
     float momentUntil;
     float standingEyes;
@@ -214,6 +216,10 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
         functions = camera == null ? null : camera.GetPlayMaker("PlayerFunctions");
         if (functions == null)
             return;
+        var piss = camera.transform.Find("Piss");
+        urinate = piss == null ? null : piss.gameObject.GetPlayMaker("Logic");
+        var cigarette = camera.transform.Find("FPSCamera/Smoking");
+        smoking = cigarette == null ? null : cigarette.gameObject;
         var finger = ClipLength(camera.transform, "FPSCamera/MiddleFinger/Pivot", "middlefinger");
         var fist = ClipLength(camera.transform, "FPSCamera/Fist/Pivot", "fist_throw");
         functions.FsmInject("Finger", () => Moment(Gesture.Finger, finger), index: 0);
@@ -240,18 +246,26 @@ sealed class PlayerSync(ObjectRegistry registry, PassengerSeat passenger)
             return Gesture.None;
         if (Time.time < momentUntil && (!seated || moment == Gesture.Finger))
             return moment;
-        if (seated || functions == null)
-            return Gesture.None;
-        switch (functions.ActiveStateName)
+        if (!seated && functions != null)
         {
-            case "Finger 2":
-            case "Thumb Up":
-                return Gesture.Hitchhike;
-            case "On":
-                return Gesture.Push;
-            default:
-                return Gesture.None;
+            switch (functions.ActiveStateName)
+            {
+                case "Finger 2":
+                case "Thumb Up":
+                    return Gesture.Hitchhike;
+                case "On":
+                    return Gesture.Push;
+            }
         }
+        // The stream runs in these states of the game's Piss logic; the cigarette is out while
+        // its Smoking object is active.
+        if (urinate != null)
+        {
+            var state = urinate.ActiveStateName;
+            if (state == "Full power" || state == "Pump" || state == "State 4")
+                return Gesture.Urinate;
+        }
+        return smoking != null && smoking.activeSelf ? Gesture.Smoke : Gesture.None;
     }
 
     PlayerFlags LocalFlags()

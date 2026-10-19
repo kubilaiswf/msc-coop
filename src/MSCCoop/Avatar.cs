@@ -143,7 +143,7 @@ sealed class Avatar
 
         var avatar = new Avatar(copy, copy.GetComponentInChildren<Animation>(), CreateNameTag(copy.transform, name),
             bones, standing, CaptureSeatedPose(skeleton, bones), modelOffset, modelRotation);
-        avatar.clips = AvatarGestures.Create(skeleton);
+        avatar.clips = AvatarGestures.Create(copy.transform, skeleton, modelRotation);
         return avatar;
     }
 

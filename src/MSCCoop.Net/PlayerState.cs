@@ -10,7 +10,7 @@ public enum PlayerFlags : byte
     InVehicle = 2,
 }
 
-// The game's own gesture actions; each is one of its cInput buttons.
+// What the player's hands are doing, from the game's own gesture, smoking and peeing logic.
 public enum Gesture : byte
 {
     None,
@@ -18,6 +18,8 @@ public enum Gesture : byte
     Hitchhike,
     Hit,
     Push,
+    Smoke,
+    Urinate,
 }
 
 public struct PlayerState
@@ -68,7 +70,7 @@ public struct PlayerState
             Flags = (PlayerFlags)r.Read(FlagBits),
         };
         var gesture = r.Read(GestureBits);
-        s.Gesture = gesture <= (uint)Gesture.Push ? (Gesture)gesture : Gesture.None;
+        s.Gesture = gesture <= (uint)Gesture.Urinate ? (Gesture)gesture : Gesture.None;
         if (r.ReadBool())
             s.Vehicle = r.ReadUInt();
         return s;
