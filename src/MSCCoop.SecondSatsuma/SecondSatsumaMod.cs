@@ -17,8 +17,16 @@ public class SecondSatsumaMod : Mod
     public override string Description => "Adds a second Satsuma with its own parts and its own save.";
 
     static bool patched;
+    static SettingsCheckBox enabledSetting;
 
-    public override void ModSetup() => SetupFunction(Setup.OnMenuLoad, Init);
+    // Every player in a co-op session needs the same choice, or their scenes differ.
+    public static bool Enabled => enabledSetting == null || enabledSetting.GetValue();
+
+    public override void ModSetup()
+    {
+        SetupFunction(Setup.OnMenuLoad, Init);
+        SetupFunction(Setup.ModSettings, () => enabledSetting = Settings.AddCheckBox("enabled", "Add the second Satsuma (from the next load)", true));
+    }
 
     // MSCLoader destroys every object, DontDestroyOnLoad ones included, on each return to the menu.
     void Init()
@@ -62,7 +70,7 @@ class LevelWatcher : MonoBehaviour
 {
     void OnLevelWasLoaded(int level)
     {
-        if (Application.loadedLevelName != "GAME")
+        if (Application.loadedLevelName != "GAME" || !SecondSatsumaMod.Enabled)
             return;
         try
         {
